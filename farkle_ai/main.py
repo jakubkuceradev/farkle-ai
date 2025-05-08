@@ -1,9 +1,7 @@
 """Starts the farkle game loop and loads GUI."""
 
 import tkinter as tk
-from game.state import GameState, Parameters
-from game.engine import FarkleEngine
-from game.gui import FarkleGUI
+from game import GameState, Parameters, FarkleEngine, FarkleGUI
 
 if __name__ == "__main__":
     # --- Game Setup ---
