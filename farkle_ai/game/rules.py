@@ -3,6 +3,7 @@
 import random
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from functools import cache
 
 # Default game settings
 DEFAULT_SCORE_TO_WIN = 5000
@@ -75,6 +76,15 @@ BASE_SCORING_PATTERNS: list[ScoringPattern] = [
     ScoringPattern((5,), 50),
 ]
 
+# Helpers
+
+
+def roll_dice(dice_count: int = 6, dice_max_value: int = 6) -> list[int]:
+    """Rolls a specified number of dice."""
+    if dice_count <= 0:
+        return []
+    return random.choices(range(1, dice_max_value + 1), k=dice_count)
+
 
 def subtract_patterns(
     rolled_dice: tuple[int, ...], pattern: tuple[int, ...]
@@ -92,11 +102,6 @@ def contains_pattern(a: tuple[int, ...], b: tuple[int, ...]) -> bool:
     return are_dice_valid(remainder)
 
 
-def normalized_tuple(obj) -> tuple[int, ...]:
-    """Normalize an object into a sorted tuple"""
-    return tuple(sorted(obj))
-
-
 def are_dice_valid(dice: Counter) -> bool:
     """Checks if the dice Counter object does not contain negative values."""
     return all((value >= 0 for value in dice.values()))
@@ -107,23 +112,9 @@ def are_dice_zero(dice: Counter) -> bool:
     return all((value == 0 for value in dice.values()))
 
 
-def scoring_patterns_per_count(
-    available_scoring_patterns: list[ScoringPattern],
-) -> list[ScoringPattern]:
-    """Returns a list of best scoring patterns for a given dice count."""
-    score_table: list[ScoringPattern] = [
-        ScoringPattern(tuple(), 0) for _ in range(MAX_DICE_COUNT)
-    ]
-
-    for scoring_pattern in available_scoring_patterns:
-        if scoring_pattern.score > score_table[len(scoring_pattern.pattern) - 1].score:
-            score_table[len(scoring_pattern.pattern) - 1] = scoring_pattern
-
-    return score_table
-
-
-def scoring_patterns_table() -> dict[tuple[int, ...], int]:
-    """Returns a dict of all possible scoring patterns in the format (pattern: score)."""
+@cache
+def scorable_patterns_table() -> dict[tuple[int, ...], int]:
+    """Returns a dict of all possible scorable patterns in the format (pattern: score)."""
 
     dp: dict[int, dict[tuple[int, ...], int]] = defaultdict(dict)
 
@@ -148,30 +139,27 @@ def scoring_patterns_table() -> dict[tuple[int, ...], int]:
     }
 
 
-def scoring_patterns_for_roll(
-    dice: tuple[int, ...],
-    pattern_scores: dict[tuple[int, ...], int] | None = None,
-) -> list[ScoringPattern]:
+@cache
+def scorable_patterns(dice: tuple[int, ...]) -> list[ScoringPattern]:
     """Finds possible scoring patterns for a given dice state."""
 
-    if isinstance(pattern_scores, type(None)):
-        pattern_scores = scoring_patterns_table()
-    elif not isinstance(pattern_scores, dict):
-        raise TypeError(
-            "pattern_scores must be dict[tuple[int, ...], int] or None type"
-        )
-
-    scoring_patterns = [
+    patterns = [
         ScoringPattern(pattern, score)
-        for pattern, score in pattern_scores.items()
+        for pattern, score in scorable_patterns_table().items()
         if contains_pattern(dice, pattern)
     ]
 
-    return scoring_patterns
+    return patterns
 
 
-def roll_dice(dice_count: int = 6, dice_max_value: int = 6) -> list[int]:
-    """Rolls a specified number of dice."""
-    if dice_count <= 0:
-        return []
-    return random.choices(range(1, dice_max_value + 1), k=dice_count)
+@cache
+def scorable_patterns_by_length(dice: tuple[int, ...]) -> list[ScoringPattern]:
+    """Finds the best scorable pattern for each pattern length."""
+
+    by_length = [ScoringPattern(tuple(), 0) for _ in range(MAX_DICE_COUNT)]
+
+    for scoring_pattern in scorable_patterns(dice):
+        if scoring_pattern.score > by_length[len(scoring_pattern.pattern)].score:
+            by_length[len(scoring_pattern.pattern)] = scoring_pattern
+
+    return by_length
