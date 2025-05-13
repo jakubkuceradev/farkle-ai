@@ -5,9 +5,10 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 
 # Default game settings
-DEFAULT_WINNING_SCORE = 5000
-DICE_COUNT = 6
-MAX_DICE_VALUE = 6
+DEFAULT_SCORE_TO_WIN = 5000
+MAX_DICE_COUNT = 6
+MAX_DIE_VALUE = 6
+DEFAULT_PLAYER_COUNT = 2
 
 # Scoring values
 SCORE_ONE = 100
@@ -34,23 +35,25 @@ class ScoringPattern:
         )
 
 
+MAX_PATTERN_SCORE = 8000
+
 BASE_SCORING_PATTERNS: list[ScoringPattern] = [
     # Six of a kind
-    ScoringPattern((1, 1, 1, 1, 1, 1), 3000),
-    ScoringPattern((2, 2, 2, 2, 2, 2), 2000),
-    ScoringPattern((3, 3, 3, 3, 3, 3), 3000),
-    ScoringPattern((4, 4, 4, 4, 4, 4), 4000),
-    ScoringPattern((5, 5, 5, 5, 5, 5), 5000),
-    ScoringPattern((6, 6, 6, 6, 6, 6), 6000),
+    ScoringPattern((1, 1, 1, 1, 1, 1), 8000),
+    ScoringPattern((2, 2, 2, 2, 2, 2), 1600),
+    ScoringPattern((3, 3, 3, 3, 3, 3), 2400),
+    ScoringPattern((4, 4, 4, 4, 4, 4), 3200),
+    ScoringPattern((5, 5, 5, 5, 5, 5), 4000),
+    ScoringPattern((6, 6, 6, 6, 6, 6), 4800),
     # Five of a kind
-    ScoringPattern((1, 1, 1, 1, 1), 2000),
-    ScoringPattern((2, 2, 2, 2, 2), 400),
-    ScoringPattern((3, 3, 3, 3, 3), 600),
-    ScoringPattern((4, 4, 4, 4, 4), 800),
-    ScoringPattern((5, 5, 5, 5, 5), 1000),
-    ScoringPattern((6, 6, 6, 6, 6), 1200),
+    ScoringPattern((1, 1, 1, 1, 1), 4000),
+    ScoringPattern((2, 2, 2, 2, 2), 800),
+    ScoringPattern((3, 3, 3, 3, 3), 1200),
+    ScoringPattern((4, 4, 4, 4, 4), 1600),
+    ScoringPattern((5, 5, 5, 5, 5), 2000),
+    ScoringPattern((6, 6, 6, 6, 6), 2400),
     # Four of a kind
-    ScoringPattern((1, 1, 1, 1), 1000),
+    ScoringPattern((1, 1, 1, 1), 2000),
     ScoringPattern((2, 2, 2, 2), 400),
     ScoringPattern((3, 3, 3, 3), 600),
     ScoringPattern((4, 4, 4, 4), 800),
@@ -104,6 +107,21 @@ def are_dice_zero(dice: Counter) -> bool:
     return all((value == 0 for value in dice.values()))
 
 
+def scoring_patterns_per_count(
+    available_scoring_patterns: list[ScoringPattern],
+) -> list[ScoringPattern]:
+    """Returns a list of best scoring patterns for a given dice count."""
+    score_table: list[ScoringPattern] = [
+        ScoringPattern(tuple(), 0) for _ in range(MAX_DICE_COUNT)
+    ]
+
+    for scoring_pattern in available_scoring_patterns:
+        if scoring_pattern.score > score_table[len(scoring_pattern.pattern) - 1].score:
+            score_table[len(scoring_pattern.pattern) - 1] = scoring_pattern
+
+    return score_table
+
+
 def scoring_patterns_table() -> dict[tuple[int, ...], int]:
     """Returns a dict of all possible scoring patterns in the format (pattern: score)."""
 
@@ -115,7 +133,7 @@ def scoring_patterns_table() -> dict[tuple[int, ...], int]:
         score = scoring_pattern.score
         dp[count][pattern] = score
 
-    for count in range(1, DICE_COUNT + 1):
+    for count in range(1, MAX_DICE_COUNT + 1):
         for count_a in range(1, count // 2 + 1):
             count_b = count - count_a
             for pattern_a, score_a in dp[count_a].items():
