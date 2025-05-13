@@ -139,6 +139,11 @@ def scorable_patterns_table() -> dict[tuple[int, ...], int]:
     }
 
 
+def pattern_score(dice: tuple[int, ...]) -> int:
+    """Return potential awarded score for a given pattern."""
+    return scorable_patterns_table().get(dice, 0)
+
+
 @cache
 def scorable_patterns(dice: tuple[int, ...]) -> list[ScoringPattern]:
     """Finds possible scoring patterns for a given dice state."""
