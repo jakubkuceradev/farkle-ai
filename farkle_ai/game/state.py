@@ -1,19 +1,25 @@
 """Defines Farkle game state."""
 
-import random
-from copy import deepcopy
 from dataclasses import dataclass, field
-from .rules import contains_pattern, ScoringPattern, DICE_COUNT, MAX_DICE_VALUE
+import numpy as np
+from .rules import (
+    contains_pattern,
+    ScoringPattern,
+    DEFAULT_PLAYER_COUNT,
+    DEFAULT_SCORE_TO_WIN,
+    MAX_DICE_COUNT,
+    MAX_DIE_VALUE,
+)
 
 
 @dataclass(frozen=True)
 class Parameters:
     """Parameters of a farkle game."""
 
-    player_count: int = field(default=2)
-    score_to_win: int = field(default=5000)
-    max_dice_count: int = field(default=6)
-    max_die_value: int = field(default=6)
+    player_count: int = field(default=DEFAULT_PLAYER_COUNT)
+    score_to_win: int = field(default=DEFAULT_SCORE_TO_WIN)
+    max_dice_count: int = field(default=MAX_DICE_COUNT)
+    max_die_value: int = field(default=MAX_DIE_VALUE)
 
 
 @dataclass(frozen=True)
@@ -27,7 +33,7 @@ class TurnState:
     has_ended: bool = field(default=False)
 
     def select_pattern(
-        self, scoring_pattern: ScoringPattern, max_dice_count=DICE_COUNT
+        self, scoring_pattern: ScoringPattern, max_dice_count=MAX_DICE_COUNT
     ) -> "TurnState":
         """Select a dice pattern."""
         if self.has_ended:
@@ -55,7 +61,10 @@ class TurnState:
         return new_state
 
     def roll_dice(
-        self, max_dice_count=DICE_COUNT, max_die_value=MAX_DICE_VALUE
+        self,
+        rng=None,
+        max_dice_count=MAX_DICE_COUNT,
+        max_die_value=MAX_DIE_VALUE,
     ) -> "TurnState":
         """Roll the dice."""
         if self.has_ended:
@@ -63,13 +72,21 @@ class TurnState:
         if self.has_rolled:
             raise RuntimeError("Can not roll dice when dice are already rolled")
 
+        if rng is None:
+            rng = np.random.default_rng()
+
         new_dice_count = (
             max_dice_count
             if self.next_roll_dice_count == 0
             else self.next_roll_dice_count
         )
+
         new_rolled_dice = tuple(
-            random.choices(range(1, max_die_value + 1), k=self.next_roll_dice_count)
+            rng.choice(
+                np.arange(1, max_die_value + 1),
+                size=new_dice_count,
+                replace=True,
+            )
         )
 
         new_state = TurnState(
@@ -123,6 +140,7 @@ class GameState:
     player_scores: list[int]
     current_player: int
     winner: int | None
+    turn: int
     is_quit: bool
 
     def __init__(
@@ -132,6 +150,7 @@ class GameState:
         player_scores: list[int] | None = None,
         current_player: int = 0,
         winner: int | None = None,
+        turn: int = 0,
         is_quit: bool = False,
     ):
 
@@ -158,6 +177,7 @@ class GameState:
         )
         object.__setattr__(self, "current_player", current_player)
         object.__setattr__(self, "winner", winner)
+        object.__setattr__(self, "turn", turn)
         object.__setattr__(self, "is_quit", is_quit)
 
     def select_pattern(self, scoring_pattern: ScoringPattern) -> "GameState":
@@ -169,21 +189,23 @@ class GameState:
             self.player_scores,
             self.current_player,
             self.winner,
+            self.turn,
         )
 
         return new_state
 
-    def roll_dice(self) -> "GameState":
+    def roll_dice(self, rng=None) -> "GameState":
         """Rolls the dice."""
 
         new_state = GameState(
             self.parameters,
             self.turn_state.roll_dice(
-                self.parameters.max_dice_count, self.parameters.max_die_value
+                rng, self.parameters.max_dice_count, self.parameters.max_die_value
             ),
             self.player_scores,
             self.current_player,
             self.winner,
+            self.turn,
         )
 
         return new_state
@@ -197,6 +219,7 @@ class GameState:
             current_player=self.current_player,
             player_scores=self.player_scores,
             winner=self.winner,
+            turn=self.turn,
         )
 
         return new_state
@@ -204,7 +227,7 @@ class GameState:
     def end_turn(self) -> "GameState":
         """End current turn."""
 
-        new_player_scores = deepcopy(self.player_scores)
+        new_player_scores = list(self.player_scores)
         new_player_scores[self.current_player] += self.turn_state.score
         new_winner = (
             self.current_player
@@ -218,11 +241,12 @@ class GameState:
             current_player=self.current_player,
             player_scores=new_player_scores,
             winner=new_winner,
+            turn=self.turn,
         )
 
         return new_state
 
-    def start_turn(self, max_dice_count=DICE_COUNT) -> "GameState":
+    def start_turn(self, max_dice_count=MAX_DICE_COUNT) -> "GameState":
         """Start a new turn."""
 
         new_turn_state = TurnState(
@@ -233,12 +257,15 @@ class GameState:
             has_ended=False,
         )
 
+        new_current_player = (self.current_player + 1) % self.parameters.player_count
+
         new_state = GameState(
             parameters=self.parameters,
             turn_state=new_turn_state,
-            current_player=(self.current_player + 1) % self.parameters.player_count,
+            current_player=new_current_player,
             player_scores=self.player_scores,
             winner=self.winner,
+            turn=self.turn + 1 if new_current_player == 0 else self.turn,
         )
 
         return new_state
