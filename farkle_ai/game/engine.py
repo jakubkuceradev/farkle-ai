@@ -1,6 +1,7 @@
 """Support for the Farkle game engine."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import numpy as np
 from .state import GameState
 from .actions import Action, BankAction, ContinueAction, PassTurnAction
 from .rules import (
@@ -15,6 +16,8 @@ from .rules import (
 @dataclass(frozen=True)
 class FarkleEngine:
     """An engine for the farkle dice game."""
+
+    rng: np.random.Generator = field(default_factory=np.random.default_rng)
 
     def actions(self, state: GameState) -> list[Action]:
         """Return permissible actions for a state."""
@@ -79,16 +82,16 @@ class FarkleEngine:
             new_state = new_state.select_pattern(scoring_pattern)
 
         if isinstance(action, ContinueAction):
-            new_state = new_state.roll_dice()
+            new_state = new_state.roll_dice(self.rng)
 
         if isinstance(action, BankAction):
             new_state = new_state.end_turn()
             new_state = new_state.start_turn()
-            new_state = new_state.roll_dice()
+            new_state = new_state.roll_dice(self.rng)
 
         if isinstance(action, PassTurnAction):
             new_state = new_state.pass_turn()
             new_state = new_state.start_turn()
-            new_state = new_state.roll_dice()
+            new_state = new_state.roll_dice(self.rng)
 
         return new_state
