@@ -59,6 +59,7 @@ def observe(state: GameState, player: int) -> dict:
 
     return observation
 
+
 def to_dict_observation(observation: np.ndarray) -> dict:
     """Convert an ndarray observation into a dict representation."""
 
@@ -76,14 +77,14 @@ def to_dict_observation(observation: np.ndarray) -> dict:
 def to_array_observation(observation: np.ndarray) -> dict:
     """Convert a dict observation into an ndarray representation."""
 
-    observation = np.empty((4 + MAX_DICE_COUNT,), dtype=np.float32)
-    observation[0] = max(0, observation["your_remaining_score"])
-    observation[1] = max(0, observation["opponent_remaining_score"])
-    observation[2] = observation["turn_score"]
-    observation[3] = observation["dice_count_in_roll"]
-    observation[4:] = observation["scores_by_pattern_length"]
+    observation_array = np.empty((4 + MAX_DICE_COUNT,), dtype=np.float32)
+    observation_array[0] = max(0, observation["your_remaining_score"])
+    observation_array[1] = max(0, observation["opponent_remaining_score"])
+    observation_array[2] = observation["turn_score"]
+    observation_array[3] = observation["dice_count_in_roll"]
+    observation_array[4:] = observation["scores_by_pattern_length"]
 
-    return observation
+    return observation_array
 
 
 def apply_action(state: GameState, action: Action, rng=None) -> GameState:
