@@ -74,7 +74,7 @@ def to_dict_observation(observation: np.ndarray) -> dict:
     return observation_dict
 
 
-def to_array_observation(observation: np.ndarray) -> dict:
+def to_array_observation(observation: dict) -> np.ndarray:
     """Convert a dict observation into an ndarray representation."""
 
     observation_array = np.empty((4 + MAX_DICE_COUNT,), dtype=np.float32)

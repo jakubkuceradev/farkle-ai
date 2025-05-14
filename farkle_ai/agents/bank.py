@@ -1,7 +1,7 @@
 """Support for BankHighestAgent."""
 
 import numpy as np
-from . import Agent
+from .agent import Agent
 
 
 class BankHighestAgent(Agent):

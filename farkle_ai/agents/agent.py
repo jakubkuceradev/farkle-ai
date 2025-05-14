@@ -13,7 +13,7 @@ from farkle_ai.game import (
     is_farkle,
     observe,
 )
-from farkle_ai.environment import ActionSpace, action_mask
+from farkle_ai.environment import AbstractAction, action_mask
 
 
 class Agent(ABC):
@@ -49,7 +49,7 @@ class AgentWrapper:
         mask = action_mask(state)
 
         chosen_action = self.agent.compute_action(observation_array, mask)
-        chosen_action_enum = ActionSpace(chosen_action)
+        chosen_action_enum = AbstractAction(chosen_action)
 
         action_type = chosen_action_enum.type
         dice_count_to_hold = chosen_action_enum.dice_count

@@ -2,7 +2,7 @@
 
 import numpy as np
 from farkle_ai.game import to_dict_observation
-from . import Agent
+from .agent import Agent
 
 
 class NaiveAgent(Agent):

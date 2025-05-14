@@ -26,7 +26,7 @@ from farkle_ai.game import (
     MAX_PATTERN_SCORE,
 )
 
-from . import AbstractAction
+from .actions import AbstractAction
 
 
 ENV_NAME = "farkle_pettingzoo_v0"
