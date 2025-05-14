@@ -76,8 +76,6 @@ BASE_SCORING_PATTERNS: list[ScoringPattern] = [
     ScoringPattern((5,), 50),
 ]
 
-# Helpers
-
 
 def roll_dice(dice_count: int = 6, dice_max_value: int = 6) -> list[int]:
     """Rolls a specified number of dice."""
@@ -139,11 +137,6 @@ def scorable_patterns_table() -> dict[tuple[int, ...], int]:
     }
 
 
-def pattern_score(dice: tuple[int, ...]) -> int:
-    """Return potential awarded score for a given pattern."""
-    return scorable_patterns_table().get(dice, 0)
-
-
 @cache
 def scorable_patterns(dice: tuple[int, ...]) -> list[ScoringPattern]:
     """Finds possible scoring patterns for a given dice state."""
@@ -164,7 +157,17 @@ def scorable_patterns_by_length(dice: tuple[int, ...]) -> list[ScoringPattern]:
     by_length = [ScoringPattern(tuple(), 0) for _ in range(MAX_DICE_COUNT)]
 
     for scoring_pattern in scorable_patterns(dice):
-        if scoring_pattern.score > by_length[len(scoring_pattern.pattern)].score:
-            by_length[len(scoring_pattern.pattern)] = scoring_pattern
+        if scoring_pattern.score > by_length[len(scoring_pattern.pattern) - 1].score:
+            by_length[len(scoring_pattern.pattern) - 1] = scoring_pattern
 
     return by_length
+
+
+def pattern_score(dice: tuple[int, ...]) -> int:
+    """Return potential awarded score for a given pattern."""
+    return scorable_patterns_table().get(dice, 0)
+
+
+def is_farkle(dice: tuple[int, ...]) -> bool:
+    """Checks if a rolled dice pattern is a farkle."""
+    return len(scorable_patterns(dice)) == 0

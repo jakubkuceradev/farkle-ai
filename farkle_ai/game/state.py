@@ -3,8 +3,8 @@
 from dataclasses import dataclass, field
 import numpy as np
 from .rules import (
-    contains_pattern,
     ScoringPattern,
+    contains_pattern,
     DEFAULT_PLAYER_COUNT,
     DEFAULT_SCORE_TO_WIN,
     MAX_DICE_COUNT,
