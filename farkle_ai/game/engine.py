@@ -1,93 +1,120 @@
 """Support for the Farkle game engine."""
 
-from dataclasses import dataclass, field
+import numpy as np
 from .state import GameState
 from .actions import Action, BankAction, ContinueAction, PassTurnAction
 from .rules import (
     ScoringPattern,
-    scoring_patterns_table,
-    scoring_patterns_for_roll,
+    pattern_score,
+    scorable_patterns,
+    scorable_patterns_by_length,
+    MAX_DICE_COUNT,
 )
 
 
-@dataclass(frozen=True)
-class FarkleEngine:
-    """An engine for the farkle dice game."""
+def actions(state: GameState) -> list[Action]:
+    """Return permissible actions for a state."""
 
-    pattern_scores: dict[tuple[int, ...], int] = field(
-        default_factory=scoring_patterns_table
+    possible_actions: list[Action] = []
+    possible_actions.append(PassTurnAction())
+
+    scoring_patterns = scorable_patterns(state.turn_state.rolled_dice)
+
+    for scoring_pattern in scoring_patterns:
+        possible_actions.append(ContinueAction(scoring_pattern.pattern))
+        possible_actions.append(BankAction(scoring_pattern.pattern))
+
+    return possible_actions
+
+
+def observe(state: GameState, player: int) -> dict:
+    """Create a summary for a given game state and player."""
+
+    your_remaining_score = state.parameters.score_to_win - state.player_scores[player]
+    opponent_remaining_score = state.parameters.score_to_win - max(
+        score for index, score in enumerate(state.player_scores) if index != player
     )
 
-    def actions(self, state: GameState) -> list[Action]:
-        """Return permissible actions for a state."""
+    if state.current_player == player:
+        turn_score = state.turn_state.score
+        dice_count_in_roll = len(state.turn_state.rolled_dice)
+        scores_by_pattern_length = [
+            scoring_pattern.score
+            for scoring_pattern in scorable_patterns_by_length(
+                state.turn_state.rolled_dice
+            )
+        ]
+    else:
+        turn_score = 0
+        dice_count_in_roll = 0
+        scores_by_pattern_length = [0] * MAX_DICE_COUNT
 
-        possible_actions: list[Action] = []
-        possible_actions.append(PassTurnAction())
+    observation = {
+        "your_remaining_score": your_remaining_score,
+        "opponent_remaining_score": opponent_remaining_score,
+        "turn_score": turn_score,
+        "dice_count_in_roll": dice_count_in_roll,
+        "scores_by_pattern_length": scores_by_pattern_length,
+    }
 
-        scoring_patterns = scoring_patterns_for_roll(
-            state.turn_state.rolled_dice, self.pattern_scores
-        )
+    return observation
 
-        for scoring_pattern in scoring_patterns:
-            possible_actions.append(ContinueAction(scoring_pattern.pattern))
-            possible_actions.append(BankAction(scoring_pattern.pattern))
 
-        return possible_actions
+def to_dict_observation(observation: np.ndarray) -> dict:
+    """Convert an ndarray observation into a dict representation."""
 
-    def score_pattern(self, pattern: tuple[int, ...]) -> ScoringPattern:
-        """Returns the ScoringPattern for a given pattern."""
-        return ScoringPattern(
-            pattern=pattern,
-            score=self.pattern_scores.get(pattern, 0),
-        )
+    observation_dict = {
+        "your_remaining_score": observation[0],
+        "opponent_remaining_score": observation[1],
+        "turn_score": observation[2],
+        "dice_count_in_roll": observation[3],
+        "scores_by_pattern_length": observation[4:],
+    }
 
-    def result(self, state: GameState, action: Action) -> GameState:
-        """Peek at the resulting game state for a given action and state."""
+    return observation_dict
 
-        new_state = state
 
-        if isinstance(action, (ContinueAction, BankAction)):
-            score = self.pattern_scores.get(action.pattern, None)
-            if score is None:
-                raise ValueError(
-                    f"Action pattern {action.pattern} must be a valid scoring pattern"
-                )
-            scoring_pattern = ScoringPattern(action.pattern, score)
-            new_state = new_state.select_pattern(scoring_pattern)
+def to_array_observation(observation: dict) -> np.ndarray:
+    """Convert a dict observation into an ndarray representation."""
 
-        if isinstance(action, BankAction):
-            new_state = new_state.end_turn()
+    observation_array = np.empty((4 + MAX_DICE_COUNT,), dtype=np.float32)
+    observation_array[0] = max(0, observation["your_remaining_score"])
+    observation_array[1] = max(0, observation["opponent_remaining_score"])
+    observation_array[2] = observation["turn_score"]
+    observation_array[3] = observation["dice_count_in_roll"]
+    observation_array[4:] = observation["scores_by_pattern_length"]
 
-        if isinstance(action, PassTurnAction):
-            new_state = new_state.pass_turn()
+    return observation_array
 
-        return new_state
 
-    def apply_action(self, state: GameState, action: Action) -> GameState:
-        """Modify game state by applying an action."""
+def apply_action(state: GameState, action: Action, rng=None) -> GameState:
+    """Modify game state by applying an action."""
 
-        new_state = state
+    if rng is None:
+        rng = np.random.default_rng()
 
-        if isinstance(action, (ContinueAction, BankAction)):
-            score = self.pattern_scores.get(action.pattern, None)
-            if score is None:
-                raise ValueError(
-                    f"Action pattern {action.pattern} must be a valid scoring pattern"
-                )
-            scoring_pattern = ScoringPattern(action.pattern, score)
-            new_state = new_state.select_pattern(scoring_pattern)
+    new_state = state
 
-        if isinstance(action, ContinueAction):
-            new_state = new_state.roll_dice()
+    if isinstance(action, (ContinueAction, BankAction)):
+        score = pattern_score(action.pattern)
+        if score == 0:
+            raise ValueError(
+                f"Action pattern {action.pattern} must be a valid scoring pattern"
+            )
+        scoring_pattern = ScoringPattern(action.pattern, score)
+        new_state = new_state.select_pattern(scoring_pattern)
 
-        if isinstance(action, BankAction):
-            new_state = new_state.end_turn()
-            new_state = new_state.start_turn()
-            new_state = new_state.roll_dice()
+    if isinstance(action, ContinueAction):
+        new_state = new_state.roll_dice(rng)
 
-        if isinstance(action, PassTurnAction):
-            new_state = new_state.pass_turn()
-            new_state = new_state.start_turn()
-            new_state = new_state.roll_dice()
+    if isinstance(action, BankAction):
+        new_state = new_state.end_turn()
+        new_state = new_state.start_turn()
+        new_state = new_state.roll_dice(rng)
 
-        return new_state
+    if isinstance(action, PassTurnAction):
+        new_state = new_state.pass_turn()
+        new_state = new_state.start_turn()
+        new_state = new_state.roll_dice(rng)
+
+    return new_state
