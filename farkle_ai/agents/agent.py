@@ -57,9 +57,17 @@ class AgentWrapper:
         by_length = scorable_patterns_by_length(state.turn_state.rolled_dice)
         scoring_pattern = by_length[dice_count_to_hold - 1]
 
+        highest_scoring_dice_count = (
+            int(np.argmax(observation_dict["scores_by_pattern_length"])) + 1
+        )
+        highest_scoring_pattern = by_length[highest_scoring_dice_count - 1]
+
         if action_type == "bank":
-            engine_action = BankAction(scoring_pattern.pattern)
+            engine_action: Action = BankAction(highest_scoring_pattern.pattern)
         else:  # continue
             engine_action = ContinueAction(scoring_pattern.pattern)
 
         return engine_action
+
+    def __str__(self):
+        return str(self.agent)
