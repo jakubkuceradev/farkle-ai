@@ -69,4 +69,4 @@ To set up and run the project:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. *(Note: You should create a LICENSE file with the MIT license text).*
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
